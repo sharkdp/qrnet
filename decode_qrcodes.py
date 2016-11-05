@@ -42,7 +42,6 @@ def num_to_matrix(num):
 
 
 def importData(folder):
-
     paths = glob.glob(os.path.join(folder, "*.png"))
 
     numImages = len(paths)
@@ -58,7 +57,7 @@ def importData(folder):
         data = data[0:IMAGE_SIZE, 0:IMAGE_SIZE]
 
         images[i, :, :, 0] = data
-        num = int(filename.replace(folder + "/", "").replace(".png", ""))  # TODO
+        num = int(os.path.splitext(os.path.basename(filename))[0])
         labels[i, :] = num_to_matrix(num)
 
         i += 1
