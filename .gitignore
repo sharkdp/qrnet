@@ -2,3 +2,6 @@
 /*.chk.meta
 /__pycache__
 /checkpoint
+/log
+/test
+/train
