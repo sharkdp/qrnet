@@ -20,15 +20,6 @@ def bias_variable(shape):
     return tf.Variable(initial)
 
 
-def conv2d(x, W):
-    return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding="SAME")
-
-
-def max_pool_2x2(x):
-    return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
-                          strides=[1, 2, 2, 1], padding="SAME")
-
-
 def digit_to_vector(d):
     vec = np.zeros((10,), dtype=np.float)
     vec[d] = 1.0
@@ -73,49 +64,41 @@ with tf.name_scope("input"):
     tf.image_summary('input_image', x_image, max_images=10)
     y_ = tf.placeholder(tf.float32, shape=[None, 10], name="y_")
 
-# First convolutional layer
-NUM_KERNELS_1 = 32
-KERNEL_SIZE_1 = 5
-
-with tf.name_scope("conv_1"):
-    W_conv1 = weight_variable([KERNEL_SIZE_1, KERNEL_SIZE_1, 1, NUM_KERNELS_1])
-    b_conv1 = bias_variable([NUM_KERNELS_1])
-
-    h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
-    h_pool1 = max_pool_2x2(h_conv1)
-
-# Second convolutional layer
-NUM_KERNELS_2 = 64
-KERNEL_SIZE_2 = 5
-
-with tf.name_scope("conv_2"):
-    W_conv2 = weight_variable([KERNEL_SIZE_2, KERNEL_SIZE_2, NUM_KERNELS_1, NUM_KERNELS_2])
-    b_conv2 = bias_variable([NUM_KERNELS_2])
-
-    h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
-    h_pool2 = max_pool_2x2(h_conv2)
+with tf.name_scope("dropout_input"):
+    keep_prob = tf.placeholder(tf.float32, name="keep_probability")
 
 # Fully connected layer
 NUM_FULLY_CONNECTED_1 = 1024
 
 with tf.name_scope("fc_1"):
-    W_fc1 = weight_variable([KERNEL_SIZE_2 * KERNEL_SIZE_2 * NUM_KERNELS_2, NUM_FULLY_CONNECTED_1])
+    W_fc1 = weight_variable([IMAGE_SIZE * IMAGE_SIZE, NUM_FULLY_CONNECTED_1])
     b_fc1 = bias_variable([NUM_FULLY_CONNECTED_1])
 
-    h_pool2_flat = tf.reshape(h_pool2, [-1, KERNEL_SIZE_2 * KERNEL_SIZE_2 * NUM_KERNELS_2])
-    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+    # h_pool2_flat = tf.reshape(h_pool2, [-1, KERNEL_SIZE_2 * KERNEL_SIZE_2 * NUM_KERNELS_2])
+    image_flat = tf.reshape(x_image, [-1, IMAGE_SIZE * IMAGE_SIZE])
+    h_fc1 = tf.nn.relu(tf.matmul(image_flat, W_fc1) + b_fc1)
 
     # Dropout
-    keep_prob = tf.placeholder(tf.float32, name="keep_probability")
     h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
+# Fully connected layer two
+NUM_FULLY_CONNECTED_2 = 64
+
+with tf.name_scope("fc_2"):
+    W_fc2 = weight_variable([NUM_FULLY_CONNECTED_1, NUM_FULLY_CONNECTED_2])
+    b_fc2 = bias_variable([NUM_FULLY_CONNECTED_2])
+
+    h_fc2 = tf.nn.relu(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
+
+    # Dropout
+    h_fc2_drop = tf.nn.dropout(h_fc2, keep_prob)
 
 # Readout
 with tf.name_scope("readout"):
-    W_fcR = weight_variable([NUM_FULLY_CONNECTED_1, 10])
+    W_fcR = weight_variable([NUM_FULLY_CONNECTED_2, 10])
     b_fcR = bias_variable([10])
 
-    y_conv = tf.matmul(h_fc1_drop, W_fcR) + b_fcR
+    y_conv = tf.matmul(h_fc2_drop, W_fcR) + b_fcR
 
 # Loss function
 with tf.name_scope("cross_entropy"):
@@ -145,7 +128,7 @@ with tf.Session() as sess:
 
     saver = tf.train.Saver()
     # print("Loading model from checkpoint")
-    # saver.restore(sess, "test.chk")
+    # saver.restore(sess, "qrnet.chk")
 
     BATCH_SIZE = 20
     MAX_STEPS = 40000
