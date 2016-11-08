@@ -6,7 +6,7 @@ import tensorflow as tf
 import PIL.Image as Image
 import numpy as np
 
-IMAGE_SIZE = 20
+IMAGE_SIZE = 21
 
 
 # Helper functions
@@ -53,8 +53,6 @@ def importData(folder):
     i = 0
     for filename in paths:
         data = np.asarray(Image.open(filename), dtype=np.float)
-        # crop from 21 x 21 to 20 x 20
-        data = data[0:IMAGE_SIZE, 0:IMAGE_SIZE]
 
         images[i, :, :, 0] = data
         num = int(os.path.splitext(os.path.basename(filename))[0])
