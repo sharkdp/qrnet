@@ -121,14 +121,20 @@ with tf.Session() as sess:
     # Summaries
     merged = tf.merge_all_summaries()
 
-    train_writer = tf.train.SummaryWriter('log/train', sess.graph, flush_secs=5)
-    test_writer = tf.train.SummaryWriter('log/test', flush_secs=5)
+    train_writer = tf.train.SummaryWriter("/tmp/qrnet-log/train", sess.graph, flush_secs=5)
+    test_writer = tf.train.SummaryWriter("/tmp/qrnet-log/test", flush_secs=5)
 
     tf.initialize_all_variables().run()
 
     saver = tf.train.Saver()
-    # print("Loading model from checkpoint")
-    # saver.restore(sess, "qrnet.chk")
+
+    print("Trying to load model from checkpoint ... ", end="")
+    try:
+        saver.restore(sess, "qrnet.chk")
+        print("success")
+    except:
+        print("failed")
+        pass
 
     BATCH_SIZE = 20
     MAX_STEPS = 40000
