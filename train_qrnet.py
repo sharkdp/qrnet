@@ -1,5 +1,6 @@
 import glob
 import os.path
+import string
 
 import tensorflow as tf
 
@@ -7,6 +8,7 @@ import PIL.Image as Image
 import numpy as np
 
 IMAGE_SIZE = 21
+NUM_OUTPUTS = len(string.ascii_lowercase)  # 26
 
 
 # Helper functions
@@ -20,16 +22,9 @@ def bias_variable(shape):
     return tf.Variable(initial)
 
 
-def digit_to_vector(d):
-    vec = np.zeros((10,), dtype=np.float)
-    vec[d] = 1.0
-    return vec
-
-
-def num_to_matrix(num):
-    numStr = "{:04}".format(num)
-
-    return digit_to_vector(int(numStr[0]))
+def letterToVector(letter):
+    nums = list(map(lambda l: l == letter, string.ascii_lowercase))
+    return np.asarray(nums, dtype=np.float)
 
 
 def importData(folder):
@@ -40,14 +35,14 @@ def importData(folder):
     print("Importing {} images from '{}' ... ".format(numImages, folder), end="", flush=True)
 
     images = np.zeros((numImages, IMAGE_SIZE, IMAGE_SIZE, 1), dtype=np.float)
-    labels = np.zeros((numImages, 10), dtype=np.int)
+    labels = np.zeros((numImages, NUM_OUTPUTS), dtype=np.int)
     i = 0
     for filename in paths:
         data = np.asarray(Image.open(filename), dtype=np.float)
 
         images[i, :, :, 0] = data
-        num = int(os.path.splitext(os.path.basename(filename))[0])
-        labels[i, :] = num_to_matrix(num)
+        firstLetter = os.path.splitext(os.path.basename(filename))[0][0]
+        labels[i, :] = letterToVector(firstLetter)
 
         i += 1
 
@@ -61,14 +56,14 @@ test_images, test_labels = importData("test")
 # Inputs
 with tf.name_scope("input"):
     x_image = tf.placeholder(tf.float32, shape=[None, IMAGE_SIZE, IMAGE_SIZE, 1], name="x_image")
-    tf.image_summary('input_image', x_image, max_images=10)
-    y_ = tf.placeholder(tf.float32, shape=[None, 10], name="y_")
+    y_ = tf.placeholder(tf.float32, shape=[None, NUM_OUTPUTS], name="y_")
+    tf.image_summary('x_image', x_image, max_images=10)
 
 with tf.name_scope("dropout_input"):
     keep_prob = tf.placeholder(tf.float32, name="keep_probability")
 
 # Fully connected layer
-NUM_FULLY_CONNECTED_1 = 1024
+NUM_FULLY_CONNECTED_1 = 128
 
 with tf.name_scope("fc_1"):
     W_fc1 = weight_variable([IMAGE_SIZE * IMAGE_SIZE, NUM_FULLY_CONNECTED_1])
@@ -95,8 +90,8 @@ with tf.name_scope("fc_2"):
 
 # Readout
 with tf.name_scope("readout"):
-    W_fcR = weight_variable([NUM_FULLY_CONNECTED_2, 10])
-    b_fcR = bias_variable([10])
+    W_fcR = weight_variable([NUM_FULLY_CONNECTED_2, NUM_OUTPUTS])
+    b_fcR = bias_variable([NUM_OUTPUTS])
 
     y_conv = tf.matmul(h_fc2_drop, W_fcR) + b_fcR
 
@@ -137,7 +132,7 @@ with tf.Session() as sess:
         pass
 
     BATCH_SIZE = 20
-    MAX_STEPS = 40000
+    MAX_STEPS = 150000
 
     for i in range(MAX_STEPS):
         b = (BATCH_SIZE * i) % 8000
@@ -150,7 +145,7 @@ with tf.Session() as sess:
                                     x_image: test_images,
                                     y_: test_labels,
                                     keep_prob: 1.0})
-            print("Test accuracy at step {:06}: {:.03}".format(i, acc), flush=True)
+            print("Test accuracy at step {:06}: {:.05}".format(i, acc), flush=True)
             test_writer.add_summary(summary, i)
         else:
             if i % 100 == 99:

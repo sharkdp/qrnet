@@ -1,12 +1,17 @@
 import qrcode
 import os.path
-from random import shuffle
+import random
+import string
+import multiprocessing
 
 
-def saveQRcode(folder, num):
-    # The 'data' will be the number, rendered as a string with leading zeros
-    data = "{:04}".format(num)
-    print(data)
+def randomString():
+    return "".join(random.choice(string.ascii_lowercase) for _ in range(10))
+
+
+def saveQRcode(folder):
+    data = randomString()
+    print("Create QR-code with data='{}'".format(data))
 
     qr = qrcode.QRCode(version=1, box_size=1, border=0)
     qr.add_data(data)
@@ -15,14 +20,10 @@ def saveQRcode(folder, num):
     img = qr.make_image()
     img.save(os.path.join(folder, data + ".png"))
 
-allNums = list(range(0, 10000))
-shuffle(allNums)
 
-trainNums = allNums[0:8000]
-testNums = allNums[8000:]
+N_TRAIN = 50000
+N_TEST = 5000
 
-for n in trainNums:
-    saveQRcode("train", n)
-
-for n in testNums:
-    saveQRcode("test", n)
+pool = multiprocessing.Pool(6)
+pool.map(saveQRcode, ("train" for _ in range(N_TRAIN)))
+pool.map(saveQRcode, ("test" for _ in range(N_TEST)))
