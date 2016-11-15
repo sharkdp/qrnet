@@ -5,8 +5,12 @@ import string
 import multiprocessing
 
 
+characterSet = string.ascii_lowercase + string.ascii_uppercase + \
+    string.digits
+
+
 def randomString():
-    return "".join(random.choice(string.ascii_lowercase) for _ in range(10))
+    return "".join(random.choice(characterSet) for _ in range(10))
 
 
 def saveQRcode(folder):
@@ -21,9 +25,10 @@ def saveQRcode(folder):
     img.save(os.path.join(folder, data + ".png"))
 
 
-N_TRAIN = 50000
-N_TEST = 5000
+if __name__ == "__main__":
+    N_TRAIN = 50000
+    N_TEST = 20000
 
-pool = multiprocessing.Pool(6)
-pool.map(saveQRcode, ("train" for _ in range(N_TRAIN)))
-pool.map(saveQRcode, ("test" for _ in range(N_TEST)))
+    pool = multiprocessing.Pool(6)
+    pool.map(saveQRcode, ("train" for _ in range(N_TRAIN)))
+    pool.map(saveQRcode, ("test" for _ in range(N_TEST)))

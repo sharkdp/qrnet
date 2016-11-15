@@ -1,14 +1,16 @@
 import glob
 import os.path
-import string
 
 import tensorflow as tf
 
 import PIL.Image as Image
 import numpy as np
 
+from random import shuffle
+from create_qrcodes import characterSet
+
 IMAGE_SIZE = 21
-NUM_OUTPUTS = len(string.ascii_lowercase)  # 26
+NUM_OUTPUTS = len(characterSet)
 
 
 # Helper functions
@@ -23,12 +25,13 @@ def bias_variable(shape):
 
 
 def letterToVector(letter):
-    nums = list(map(lambda l: l == letter, string.ascii_lowercase))
+    nums = list(map(lambda l: l == letter, characterSet))
     return np.asarray(nums, dtype=np.float)
 
 
 def importData(folder):
     paths = glob.glob(os.path.join(folder, "*.png"))
+    shuffle(paths)
 
     numImages = len(paths)
 
@@ -53,6 +56,8 @@ def importData(folder):
 train_images, train_labels = importData("train")
 test_images, test_labels = importData("test")
 
+NUM_TRAIN_IMAGES = train_images.shape[0]
+
 # Inputs
 with tf.name_scope("input"):
     x_image = tf.placeholder(tf.float32, shape=[None, IMAGE_SIZE, IMAGE_SIZE, 1], name="x_image")
@@ -69,7 +74,6 @@ with tf.name_scope("fc_1"):
     W_fc1 = weight_variable([IMAGE_SIZE * IMAGE_SIZE, NUM_FULLY_CONNECTED_1])
     b_fc1 = bias_variable([NUM_FULLY_CONNECTED_1])
 
-    # h_pool2_flat = tf.reshape(h_pool2, [-1, KERNEL_SIZE_2 * KERNEL_SIZE_2 * NUM_KERNELS_2])
     image_flat = tf.reshape(x_image, [-1, IMAGE_SIZE * IMAGE_SIZE])
     h_fc1 = tf.nn.relu(tf.matmul(image_flat, W_fc1) + b_fc1)
 
@@ -93,11 +97,11 @@ with tf.name_scope("readout"):
     W_fcR = weight_variable([NUM_FULLY_CONNECTED_2, NUM_OUTPUTS])
     b_fcR = bias_variable([NUM_OUTPUTS])
 
-    y_conv = tf.matmul(h_fc2_drop, W_fcR) + b_fcR
+    y_readout = tf.matmul(h_fc2_drop, W_fcR) + b_fcR
 
 # Loss function
 with tf.name_scope("cross_entropy"):
-    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_conv, y_))
+    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_readout, y_))
     tf.scalar_summary("cross entropy", cross_entropy)
 
 # Training
@@ -107,7 +111,7 @@ with tf.name_scope("train_step"):
 # Evaluation
 with tf.name_scope("accuracy"):
     with tf.name_scope("correct_prediction"):
-        correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
+        correct_prediction = tf.equal(tf.argmax(y_readout, 1), tf.argmax(y_, 1))
     with tf.name_scope("accuracy"):
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
         tf.scalar_summary("accuracy", accuracy)
@@ -132,14 +136,16 @@ with tf.Session() as sess:
         pass
 
     BATCH_SIZE = 20
-    MAX_STEPS = 150000
+    MAX_STEPS = 500000
+
+    KEEP_PROBABILITY = 0.5
 
     for i in range(MAX_STEPS):
-        b = (BATCH_SIZE * i) % 8000
+        b = (BATCH_SIZE * i) % NUM_TRAIN_IMAGES
         batch_images = train_images[b:(b + BATCH_SIZE)]
         batch_labels = train_labels[b:(b + BATCH_SIZE)]
 
-        if i % 100 == 0:
+        if i % 1000 == 0:
             # Record test set accuracy
             summary, acc = sess.run([merged, accuracy], feed_dict={
                                     x_image: test_images,
@@ -148,14 +154,14 @@ with tf.Session() as sess:
             print("Test accuracy at step {:06}: {:.05}".format(i, acc), flush=True)
             test_writer.add_summary(summary, i)
         else:
-            if i % 100 == 99:
+            if i % 1000 == 999:
                 # Record execution stats
                 run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                 run_metadata = tf.RunMetadata()
                 summary, _ = sess.run([merged, train_step], feed_dict={
                                       x_image: batch_images,
                                       y_: batch_labels,
-                                      keep_prob: 0.5},
+                                      keep_prob: KEEP_PROBABILITY},
                                       options=run_options,
                                       run_metadata=run_metadata
                                       )
@@ -166,8 +172,9 @@ with tf.Session() as sess:
                 summary, _ = sess.run([merged, train_step], feed_dict={
                                       x_image: batch_images,
                                       y_: batch_labels,
-                                      keep_prob: 0.5})
-                train_writer.add_summary(summary, i)
+                                      keep_prob: KEEP_PROBABILITY})
+                if i % 10 == 0:
+                    train_writer.add_summary(summary, i)
 
     train_writer.close()
     test_writer.close()
