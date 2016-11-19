@@ -1,16 +1,8 @@
-import glob
-import os.path
-
 import tensorflow as tf
-
-import PIL.Image as Image
-import numpy as np
-
-from random import shuffle
-from create_qrcodes import characterSet
+import qrcodes
 
 IMAGE_SIZE = 21
-NUM_OUTPUTS = len(characterSet)
+NUM_OUTPUTS = len(qrcodes.CHARACTER_SET)
 
 
 # Helper functions
@@ -24,45 +16,18 @@ def bias_variable(shape):
     return tf.Variable(initial)
 
 
-def letterToVector(letter):
-    nums = list(map(lambda l: l == letter, characterSet))
-    return np.asarray(nums, dtype=np.float)
+# Validation set
+NUM_TEST_IMAGES = 5000
+print("Creating {} random test images ... ".format(NUM_TEST_IMAGES), end="", flush=True)
+test_images, test_labels = qrcodes.getRandomBatch(size=NUM_TEST_IMAGES)
+print("done")
 
-
-def importData(folder):
-    paths = glob.glob(os.path.join(folder, "*.png"))
-    shuffle(paths)
-
-    numImages = len(paths)
-
-    print("Importing {} images from '{}' ... ".format(numImages, folder), end="", flush=True)
-
-    images = np.zeros((numImages, IMAGE_SIZE, IMAGE_SIZE, 1), dtype=np.float)
-    labels = np.zeros((numImages, NUM_OUTPUTS), dtype=np.int)
-    i = 0
-    for filename in paths:
-        data = np.asarray(Image.open(filename), dtype=np.float)
-
-        images[i, :, :, 0] = data
-        firstLetter = os.path.splitext(os.path.basename(filename))[0][0]
-        labels[i, :] = letterToVector(firstLetter)
-
-        i += 1
-
-    print("done", flush=True)
-
-    return images, labels
-
-train_images, train_labels = importData("train")
-test_images, test_labels = importData("test")
-
-NUM_TRAIN_IMAGES = train_images.shape[0]
 
 # Inputs
 with tf.name_scope("input"):
     x_image = tf.placeholder(tf.float32, shape=[None, IMAGE_SIZE, IMAGE_SIZE, 1], name="x_image")
     y_ = tf.placeholder(tf.float32, shape=[None, NUM_OUTPUTS], name="y_")
-    tf.image_summary('x_image', x_image, max_images=10)
+    tf.image_summary('x_image', x_image, max_images=3)
 
 with tf.name_scope("dropout_input"):
     keep_prob = tf.placeholder(tf.float32, name="keep_probability")
@@ -106,7 +71,7 @@ with tf.name_scope("cross_entropy"):
 
 # Training
 with tf.name_scope("train_step"):
-    train_step = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(cross_entropy)
+    train_step = tf.train.AdamOptimizer(learning_rate=5e-4).minimize(cross_entropy)
 
 # Evaluation
 with tf.name_scope("accuracy"):
@@ -136,25 +101,26 @@ with tf.Session() as sess:
         pass
 
     BATCH_SIZE = 200
-    MAX_STEPS = 200000
+    MAX_STEPS = 100000
 
-    KEEP_PROBABILITY = 0.5
+    KEEP_PROBABILITY = 1.0
 
     for i in range(MAX_STEPS):
-        b = (BATCH_SIZE * i) % NUM_TRAIN_IMAGES
-        batch_images = train_images[b:(b + BATCH_SIZE)]
-        batch_labels = train_labels[b:(b + BATCH_SIZE)]
+        batch_images, batch_labels = qrcodes.getRandomBatch(size=BATCH_SIZE)
 
-        if i % 1000 == 0:
+        if i % 100 == 0:
             # Record test set accuracy
             summary, acc = sess.run([merged, accuracy], feed_dict={
                                     x_image: test_images,
                                     y_: test_labels,
                                     keep_prob: 1.0})
-            print("Test accuracy at step {:06}: {:.05}".format(i, acc), flush=True)
+            print("Test set accuracy at step {:06}: {:.05}".format(i, acc), flush=True)
             test_writer.add_summary(summary, i)
+
+            # Save model weights
+            saver.save(sess, "qrnet.chk")
         else:
-            if i % 1000 == 999:
+            if i % 100 == 99:
                 # Record execution stats
                 run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                 run_metadata = tf.RunMetadata()
@@ -178,5 +144,3 @@ with tf.Session() as sess:
 
     train_writer.close()
     test_writer.close()
-
-    saver.save(sess, "qrnet.chk")
