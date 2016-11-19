@@ -106,7 +106,7 @@ with tf.name_scope("cross_entropy"):
 
 # Training
 with tf.name_scope("train_step"):
-    train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+    train_step = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(cross_entropy)
 
 # Evaluation
 with tf.name_scope("accuracy"):
@@ -135,8 +135,8 @@ with tf.Session() as sess:
         print("failed")
         pass
 
-    BATCH_SIZE = 20
-    MAX_STEPS = 500000
+    BATCH_SIZE = 200
+    MAX_STEPS = 200000
 
     KEEP_PROBABILITY = 0.5
 
