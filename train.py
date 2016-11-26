@@ -1,7 +1,7 @@
 import tensorflow as tf
 import qrcodes
+from qrcodes import IMAGE_SIZE
 
-IMAGE_SIZE = 21
 NUM_OUTPUTS = len(qrcodes.CHARACTER_SET)
 
 

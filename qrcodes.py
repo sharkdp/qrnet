@@ -5,6 +5,7 @@ import string
 import numpy as np
 
 
+IMAGE_SIZE = 21
 STRING_LENGTH = 10
 CHARACTER_SET = string.ascii_lowercase + string.ascii_uppercase + \
     string.digits
@@ -34,6 +35,7 @@ def qrCodeMatrix(data):
     qr.add_data(data)
     qr.make(fit=True)  # fit=True automatically determines the size
 
+    # Reverse black <-> white and convert to numpy array
     return 1 - np.asarray(qr.get_matrix(), dtype=np.float)
 
 
