@@ -27,7 +27,7 @@ print("done")
 with tf.name_scope("input"):
     x_image = tf.placeholder(tf.float32, shape=[None, IMAGE_SIZE, IMAGE_SIZE, 1], name="x_image")
     y_ = tf.placeholder(tf.float32, shape=[None, NUM_OUTPUTS], name="y_")
-    tf.image_summary('x_image', x_image, max_images=3)
+    tf.summary.image('x_image', x_image, max_outputs=3)
 
 with tf.name_scope("dropout_input"):
     keep_prob = tf.placeholder(tf.float32, name="keep_probability")
@@ -66,8 +66,9 @@ with tf.name_scope("readout"):
 
 # Loss function
 with tf.name_scope("cross_entropy"):
-    cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_readout, y_))
-    tf.scalar_summary("cross entropy", cross_entropy)
+    cross_entropy = tf.reduce_mean(
+        tf.nn.softmax_cross_entropy_with_logits_v2(logits=y_readout, labels=y_))
+    tf.summary.scalar("cross entropy", cross_entropy)
 
 # Training
 with tf.name_scope("train_step"):
@@ -79,26 +80,26 @@ with tf.name_scope("accuracy"):
         correct_prediction = tf.equal(tf.argmax(y_readout, 1), tf.argmax(y_, 1))
     with tf.name_scope("accuracy"):
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-        tf.scalar_summary("accuracy", accuracy)
+        tf.summary.scalar("accuracy", accuracy)
 
 with tf.Session() as sess:
     # Summaries
-    merged = tf.merge_all_summaries()
+    merged = tf.summary.merge_all()
 
-    train_writer = tf.train.SummaryWriter("/tmp/qrnet-log/train", sess.graph, flush_secs=5)
-    test_writer = tf.train.SummaryWriter("/tmp/qrnet-log/test", flush_secs=5)
+    train_writer = tf.summary.FileWriter("/tmp/qrnet-log/train", sess.graph, flush_secs=5)
+    test_writer = tf.summary.FileWriter("/tmp/qrnet-log/test", flush_secs=5)
 
-    tf.initialize_all_variables().run()
+    tf.global_variables_initializer().run()
 
-    saver = tf.train.Saver()
+    # saver = tf.train.Saver()
 
-    print("Trying to load model from checkpoint ... ", end="")
-    try:
-        saver.restore(sess, "qrnet.chk")
-        print("success")
-    except:
-        print("failed")
-        pass
+    # print("Trying to load model from checkpoint ... ", end="")
+    # try:
+    #     saver.restore(sess, "qrnet.chk")
+    #     print("success")
+    # except:
+    #     print("failed")
+    #     pass
 
     BATCH_SIZE = 200
     MAX_STEPS = 100000
@@ -118,7 +119,7 @@ with tf.Session() as sess:
             test_writer.add_summary(summary, i)
 
             # Save model weights
-            saver.save(sess, "qrnet.chk")
+            # saver.save(sess, "qrnet.chk")
         else:
             if i % 100 == 99:
                 # Record execution stats
